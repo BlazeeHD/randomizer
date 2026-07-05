@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yes or No + Daily Bible Verse</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f5f5f4;
+    --surface2: #ebebea;
+    --border: #e0e0de;
+    --text: #1a1a18;
+    --muted: #888780;
+    --hint: #b4b2a9;
+    --success-bg: #eaf3de;
+    --success-border: #97c459;
+    --success-text: #27500a;
+    --danger-bg: #fcebeb;
+    --danger-border: #f09595;
+    --danger-text: #791f1f;
+    --info-bg: #e6f1fb;
+    --info-border: #85b7eb;
+    --info-text: #0c447c;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow: 0 20px 50px rgba(0,0,0,0.16);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110;
+      --surface: #1c1c1a;
+      --surface2: #252523;
+      --border: #2e2e2c;
+      --text: #f0f0ee;
+      --muted: #888780;
+      --hint: #5f5e5a;
+      --success-bg: #173404;
+      --success-border: #3b6d11;
+      --success-text: #c0dd97;
+      --danger-bg: #501313;
+      --danger-border: #a32d2d;
+      --danger-text: #f7c1c1;
+      --info-bg: #042c53;
+      --info-border: #185fa5;
+      --info-text: #b5d4f4;
+      --shadow: 0 20px 50px rgba(0,0,0,0.55);
+    }
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 16px 64px;
+    gap: 28px;
+  }
+
+  header { text-align: center; }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 500; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .tagline { font-size: 13px; color: var(--muted); }
+
+  .card {
+    width: 100%;
+    max-width: 520px;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 16px;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--hint); }
+
+  #bible-refresh {
+    background: none; border: none; cursor: pointer;
+    color: var(--hint); font-size: 16px;
+    padding: 3px 8px; border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+  #bible-refresh:hover { color: var(--muted); background: var(--surface2); }
+
+  #bible-body {
+    padding: 18px 20px; min-height: 110px;
+    display: flex; flex-direction: column; gap: 10px; justify-content: center;
+  }
+
+  #bible-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+
+  .loader-ring {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--muted);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  #bible-error {
+    display: none; font-size: 13px;
+    color: var(--danger-text); background: var(--danger-bg);
+    border: 0.5px solid var(--danger-border);
+    border-radius: var(--radius-md); padding: 10px 14px;
+  }
+
+  #bible-content { display: none; flex-direction: column; gap: 10px; }
+
+  #bible-reference {
+    font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--info-text);
+  }
+
+  #bible-verse { font-size: 15px; line-height: 1.65; color: var(--text); font-style: italic; }
+
+  #bible-reflection {
+    font-size: 13px; line-height: 1.6; color: var(--muted);
+    padding-top: 6px; border-top: 0.5px solid var(--border);
+  }
+
+  .divider {
+    width: 100%; max-width: 520px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .divider-line { flex: 1; height: 0.5px; background: var(--border); }
+  .divider-text { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--hint); }
+
+  #app {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px; width: 100%; max-width: 520px;
+  }
+
+  #question-input {
+    width: 100%; font-size: 15px; padding: 12px 16px;
+    border-radius: var(--radius-lg); border: 0.5px solid var(--border);
+    background: var(--surface); color: var(--text);
+    text-align: center; outline: none;
+    transition: border-color 0.2s; font-family: inherit;
+  }
+  #question-input::placeholder { color: var(--hint); }
+  #question-input:focus { border-color: var(--muted); }
+
+  #stage {
+    width: 190px; height: 190px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; margin: 4px 0;
+    perspective: 600px;
+  }
+
+  #ring-track { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--border); }
+  #ring-fill  { position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--muted); display: none; }
+
+  #result-circle {
+    width: 140px; height: 140px; border-radius: 50%;
+    background: var(--surface); border: 0.5px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; transition: background 0.4s, border-color 0.4s;
+    transform-style: preserve-3d;
+  }
+
+  #result-circle.flipping { animation: coinFlip 0.6s linear infinite; }
+
+  @keyframes coinFlip {
+    0%   { transform: rotateY(0deg); }
+    100% { transform: rotateY(360deg); }
+  }
+
+  #result-word { font-size: 2.5rem; font-weight: 500; color: var(--text); line-height: 1; transition: color 0.3s; }
+  #result-sub  { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--hint); }
+  #status-msg  { font-size: 13px; color: var(--muted); min-height: 20px; text-align: center; }
+
+  #progress-track {
+    width: 190px; height: 3px; border-radius: 3px;
+    background: var(--surface2); overflow: hidden; display: none;
+  }
+  #progress-fill {
+    height: 100%; width: 0%; border-radius: 3px;
+    background: var(--muted); transition: width linear;
+  }
+
+  #go-btn {
+    padding: 13px 52px; font-size: 15px; font-weight: 500;
+    border-radius: 100px; border: 0.5px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer;
+    transition: background 0.15s, transform 0.1s; font-family: inherit;
+  }
+  #go-btn:hover:not(:disabled) { background: var(--surface2); }
+  #go-btn:active:not(:disabled) { transform: scale(0.97); }
+  #go-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #history-wrap { width: 100%; display: none; }
+
+  #history-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--hint); text-align: center; margin-bottom: 10px;
+  }
+
+  #history-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+
+  .hist-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 9px 14px; border-radius: var(--radius-md);
+    background: var(--surface); border: 0.5px solid var(--border);
+    font-size: 13px; animation: fadeUp 0.25s ease;
+  }
+
+  @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  .hist-q { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .hist-badge { font-size: 12px; font-weight: 500; padding: 3px 12px; border-radius: 100px; flex-shrink: 0; }
+  .badge-yes { background: var(--success-bg); color: var(--success-text); border: 0.5px solid var(--success-border); }
+  .badge-no  { background: var(--danger-bg);  color: var(--danger-text);  border: 0.5px solid var(--danger-border); }
+
+  #clear-btn {
+    display: block; margin: 10px auto 0; font-size: 12px; color: var(--hint);
+    background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit;
+  }
+  #clear-btn:hover { color: var(--muted); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinning { animation: spin 0.7s linear infinite; }
+
+  @keyframes pop {
+    0%   { transform: scale(0.55); opacity: 0; }
+    70%  { transform: scale(1.08); }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  .popped { animation: pop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+  /* ── RESULT MODAL ────────────────────────────────────────── */
+  #modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px; z-index: 100;
+    opacity: 0; transition: opacity 0.2s ease;
+  }
+  #modal-overlay.open { display: flex; }
+  #modal-overlay.show { opacity: 1; }
+
+  #modal-card {
+    width: 100%; max-width: 380px;
+    background: var(--bg); border: 0.5px solid var(--border);
+    border-radius: 20px; box-shadow: var(--shadow);
+    padding: 26px 26px 22px;
+    transform: translateY(14px) scale(0.96); opacity: 0;
+    transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease;
+  }
+  #modal-overlay.show #modal-card { transform: translateY(0) scale(1); opacity: 1; }
+
+  #modal-close {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none; cursor: pointer;
+    font-size: 18px; color: var(--hint); line-height: 1;
+    padding: 4px;
+  }
+  #modal-close:hover { color: var(--muted); }
+
+  #modal-card { position: relative; }
+
+  #modal-question {
+    font-size: 12px; color: var(--muted); text-align: center;
+    margin-bottom: 14px; line-height: 1.4;
+    padding: 0 18px;
+  }
+
+  #modal-badge {
+    width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.9rem; font-weight: 600;
+    border: 1px solid transparent;
+  }
+
+  #modal-tagline {
+    text-align: center; font-size: 13px; color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .confidence-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .confidence-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--hint); }
+  .confidence-value { font-size: 12px; font-weight: 600; color: var(--text); }
+
+  #confidence-track {
+    width: 100%; height: 6px; border-radius: 6px;
+    background: var(--surface2); overflow: hidden; margin-bottom: 20px;
+  }
+  #confidence-fill {
+    height: 100%; border-radius: 6px; width: 0%;
+    transition: width 0.7s cubic-bezier(0.22,1,0.36,1);
+  }
+
+  #reasons-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--hint); margin-bottom: 10px;
+  }
+
+  #reasons-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .reason-row {
+    display: flex; align-items: flex-start; gap: 9px;
+    font-size: 13px; line-height: 1.5; color: var(--text);
+    opacity: 0; transform: translateX(-6px);
+    animation: reasonIn 0.35s ease forwards;
+  }
+  .reason-row .dot {
+    width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex-shrink: 0;
+  }
+  @keyframes reasonIn { to { opacity: 1; transform: translateX(0); } }
+
+  #modal-disclaimer {
+    font-size: 11px; color: var(--hint); text-align: center;
+    margin-bottom: 18px; line-height: 1.5;
+  }
+
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-btn {
+    flex: 1; padding: 11px; border-radius: 100px; font-size: 13px; font-weight: 500;
+    border: 0.5px solid var(--border); background: var(--surface); color: var(--text);
+    cursor: pointer; transition: background 0.15s; font-family: inherit;
+  }
+  .modal-btn:hover { background: var(--surface2); }
+  .modal-btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .modal-btn.primary:hover { opacity: 0.88; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Yes or No?</h1>
+  <p class="tagline">Daily Bible verse + randomizer</p>
+</header>
+
+<div class="card" id="bible-card">
+  <div class="card-header">
+    <span class="card-label" id="bible-date-label">Verse of the day</span>
+    <button id="bible-refresh" title="Get a different verse">&#8635;</button>
+  </div>
+  <div id="bible-body">
+    <div id="bible-loading">
+      <div class="loader-ring"></div>
+      <span>Loading today's verse&hellip;</span>
+    </div>
+    <div id="bible-error"></div>
+    <div id="bible-content">
+      <span id="bible-reference"></span>
+      <p id="bible-verse"></p>
+      <p id="bible-reflection"></p>
+    </div>
+  </div>
+</div>
+
+<div class="divider">
+  <div class="divider-line"></div>
+  <span class="divider-text">Randomizer</span>
+  <div class="divider-line"></div>
+</div>
+
+<div id="app">
+  <input id="question-input" type="text" placeholder="Ask a yes or no question&hellip;" maxlength="80" />
+  <div id="stage">
+    <div id="ring-track"></div>
+    <div id="ring-fill"></div>
+    <div id="result-circle">
+      <span id="result-word">?</span>
+      <span id="result-sub">waiting</span>
+    </div>
+  </div>
+  <div id="progress-track"><div id="progress-fill"></div></div>
+  <div id="status-msg">Type a question and press Randomize</div>
+  <button id="go-btn">Randomize</button>
+  <div id="history-wrap">
+    <div id="history-label">History</div>
+    <div id="history-list"></div>
+    <button id="clear-btn">Clear history</button>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal-card">
+    <button id="modal-close" title="Close">&times;</button>
+    <p id="modal-question"></p>
+    <div id="modal-badge"></div>
+    <p id="modal-tagline"></p>
+
+    <div class="confidence-row">
+      <span class="confidence-label">Confidence</span>
+      <span class="confidence-value" id="confidence-value">0%</span>
+    </div>
+    <div id="confidence-track"><div id="confidence-fill"></div></div>
+
+    <div id="reasons-label">The reasoning (sort of)</div>
+    <div id="reasons-list"></div>
+
+    <p id="modal-disclaimer">Just a bit of randomness dressed up nice \u2014 trust yourself for the real decision.</p>
+
+    <div class="modal-actions">
+      <button class="modal-btn" id="modal-again">Ask again</button>
+      <button class="modal-btn primary" id="modal-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─────────────────────────────────────────────────────────────
+  // BIBLE VERSE OF THE DAY — calls your Cloudflare Worker.
+  // The Worker (worker.js) now picks the reference itself
+  // (deterministic per day, random when force=1) and fetches real
+  // verse text, so the LLM only writes the reflection. That's what
+  // fixes the repeat-verse issue.
+  // ─────────────────────────────────────────────────────────────
+  const WORKER_URL = 'https://steep-shape-324d.judemonterde204.workers.dev/';
+  const PH_OFFSET  = 8; // UTC+8 Philippine Time
+  const CACHE_KEY_DATA = 'bible_verse_data_v3';
+  const CACHE_KEY_DATE = 'bible_verse_date_v3';
+
+  function todayPH() {
+    const now = new Date();
+    const ph  = new Date(now.getTime() + PH_OFFSET * 60 * 60 * 1000);
+    return ph.toISOString().slice(0, 10);
+  }
+
+  const bibleLoading = document.getElementById('bible-loading');
+  const bibleError   = document.getElementById('bible-error');
+  const bibleContent = document.getElementById('bible-content');
+  const bibleRef     = document.getElementById('bible-reference');
+  const bibleVerse   = document.getElementById('bible-verse');
+  const bibleReflect = document.getElementById('bible-reflection');
+  const bibleDateLbl = document.getElementById('bible-date-label');
+  const bibleRefresh = document.getElementById('bible-refresh');
+
+  function showBibleState(state) {
+    bibleLoading.style.display = state === 'loading' ? 'flex'  : 'none';
+    bibleError.style.display   = state === 'error'   ? 'block' : 'none';
+    bibleContent.style.display = state === 'done'    ? 'flex'  : 'none';
+  }
+
+  function renderVerse(data) {
+    bibleRef.textContent     = data.reference;
+    bibleVerse.textContent   = '\u201C' + data.verse + '\u201D';
+    bibleReflect.textContent = data.reflection;
+    const d = new Date(todayPH() + 'T00:00:00+08:00');
+    const fmt = d.toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric', timeZone:'Asia/Manila' });
+    bibleDateLbl.textContent = 'Verse of the day \u2022 ' + fmt;
+    showBibleState('done');
+  }
+
+  async function fetchVerse(force) {
+    const today = todayPH();
+
+    if (!force) {
+      const cachedDate = localStorage.getItem(CACHE_KEY_DATE);
+      const cachedData = localStorage.getItem(CACHE_KEY_DATA);
+      if (cachedDate === today && cachedData) {
+        renderVerse(JSON.parse(cachedData));
+        return;
+      }
+    }
+
+    showBibleState('loading');
+    bibleRefresh.classList.add('spinning');
+
+    try {
+      const params = new URLSearchParams({ date: today });
+      if (force) params.set('force', '1');
+
+      const res = await fetch(WORKER_URL + '?' + params.toString());
+      if (!res.ok) throw new Error('Worker returned ' + res.status);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error + (data.detail ? ': ' + data.detail : ''));
+
+      localStorage.setItem(CACHE_KEY_DATE, today);
+      localStorage.setItem(CACHE_KEY_DATA, JSON.stringify(data));
+      renderVerse(data);
+    } catch (err) {
+      showBibleState('error');
+      bibleError.textContent = 'Could not load verse: ' + err.message;
+    } finally {
+      bibleRefresh.classList.remove('spinning');
+    }
+  }
+
+  function scheduleNextMidnight() {
+    const now = new Date();
+    const ph  = new Date(now.getTime() + PH_OFFSET * 60 * 60 * 1000);
+    const msUntilMidnight =
+      (24 * 60 * 60 * 1000) -
+      ((ph.getHours() * 60 * 60 + ph.getMinutes() * 60 + ph.getSeconds()) * 1000 + ph.getMilliseconds());
+    setTimeout(() => {
+      fetchVerse(false);
+      scheduleNextMidnight();
+    }, msUntilMidnight);
+  }
+
+  fetchVerse(false);
+  scheduleNextMidnight();
+
+  // ── YES / NO RANDOMIZER ──────────────────────────────────────
+  const input    = document.getElementById('question-input');
+  const goBtn    = document.getElementById('go-btn');
+  const ring     = document.getElementById('ring-fill');
+  const circle   = document.getElementById('result-circle');
+  const word     = document.getElementById('result-word');
+  const sub      = document.getElementById('result-sub');
+  const status   = document.getElementById('status-msg');
+  const histWrap = document.getElementById('history-wrap');
+  const histList = document.getElementById('history-list');
+  const clearBtn = document.getElementById('clear-btn');
+  const progTrack = document.getElementById('progress-track');
+  const progFill  = document.getElementById('progress-fill');
+
+  const overlay      = document.getElementById('modal-overlay');
+  const modalClose    = document.getElementById('modal-close');
+  const modalQuestion = document.getElementById('modal-question');
+  const modalBadge    = document.getElementById('modal-badge');
+  const modalTagline  = document.getElementById('modal-tagline');
+  const confValue     = document.getElementById('confidence-value');
+  const confFill      = document.getElementById('confidence-fill');
+  const reasonsList   = document.getElementById('reasons-list');
+  const modalAgain    = document.getElementById('modal-again');
+  const modalDone     = document.getElementById('modal-done');
+
+  const phases = [
+    'Consulting the cosmos\u2026','Flipping the coin\u2026',
+    'Thinking really hard\u2026','Calculating fate\u2026',
+    'Asking the universe\u2026','Rolling the dice\u2026',
+    'Checking the stars\u2026','Analyzing vibes\u2026',
+    'Processing\u2026','Almost there\u2026',
+  ];
+
+  const YES_REASONS = [
+    'Your energy is leaning toward yes',
+    'The timing lines up well right now',
+    'This path shows a bit more momentum',
+    'Overthinking may be the only real obstacle',
+    'Sometimes the simple answer is the right one',
+    'Your gut probably already knew this',
+    'This looks like the direction with more upside'
+  ];
+  const NO_REASONS = [
+    'This might not be the right moment for it',
+    'A pause here could save some trouble later',
+    'Your hesitation could be worth listening to',
+    'Waiting might open up a better option',
+    'This one can wait for more clarity',
+    'Not every door needs opening right away',
+    'The trade-off may not be worth it yet'
+  ];
+
+  let busy = false, phaseInterval;
+
+  function reset() {
+    word.textContent = '?';
+    sub.textContent  = 'waiting';
+    circle.style.background = circle.style.borderColor = word.style.color = '';
+    ring.style.display = 'none';
+    ring.classList.remove('spinning');
+    circle.classList.remove('popped', 'flipping');
+    progTrack.style.display = 'none';
+    progFill.style.width = '0%';
+    progFill.style.transitionDuration = '0s';
+  }
+
+  function pickReasons(pool, count) {
+    const copy = pool.slice();
+    const picked = [];
+    for (let i = 0; i < count && copy.length; i++) {
+      picked.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    }
+    return picked;
+  }
+
+  function openModal(question, isYes) {
+    modalQuestion.textContent = '\u201C' + question + '\u201D';
+
+    modalBadge.textContent = isYes ? 'YES' : 'NO';
+    modalBadge.style.background  = isYes ? 'var(--success-bg)' : 'var(--danger-bg)';
+    modalBadge.style.borderColor = isYes ? 'var(--success-border)' : 'var(--danger-border)';
+    modalBadge.style.color       = isYes ? 'var(--success-text)' : 'var(--danger-text)';
+
+    modalTagline.textContent = isYes
+      ? 'Leaning toward going for it.'
+      : 'Leaning toward holding off.';
+
+    const confidence = 58 + Math.floor(Math.random() * 39); // 58–96
+    confValue.textContent = confidence + '%';
+    confFill.style.width = '0%';
+    confFill.style.background = isYes ? 'var(--success-border)' : 'var(--danger-border)';
+
+    const reasons = pickReasons(isYes ? YES_REASONS : NO_REASONS, 3);
+    reasonsList.innerHTML = '';
+    reasons.forEach((text, i) => {
+      const row = document.createElement('div');
+      row.className = 'reason-row';
+      row.style.animationDelay = (i * 0.08) + 's';
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = isYes ? 'var(--success-border)' : 'var(--danger-border)';
+      const span = document.createElement('span');
+      span.textContent = text;
+      row.appendChild(dot);
+      row.appendChild(span);
+      reasonsList.appendChild(row);
+    });
+
+    overlay.classList.add('open');
+    requestAnimationFrame(() => {
+      overlay.classList.add('show');
+      requestAnimationFrame(() => { confFill.style.width = confidence + '%'; });
+    });
+  }
+
+  function closeModal() {
+    overlay.classList.remove('show');
+    setTimeout(() => overlay.classList.remove('open'), 220);
+  }
+
+  modalClose.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+  modalDone.addEventListener('click', closeModal);
+  modalAgain.addEventListener('click', () => {
+    closeModal();
+    input.value = '';
+    input.focus();
+    reset();
+    status.textContent = 'Type a question and press Randomize';
+  });
+
+  function randomize() {
+    if (busy) return;
+    busy = true; goBtn.disabled = true;
+    reset();
+    ring.style.display = 'block';
+    ring.classList.add('spinning');
+    circle.classList.add('flipping');
+
+    let pi = Math.floor(Math.random() * phases.length);
+    status.textContent = phases[pi];
+    phaseInterval = setInterval(() => { pi = (pi+1) % phases.length; status.textContent = phases[pi]; }, 650);
+
+    const duration = 1800 + Math.random() * 1400;
+    progTrack.style.display = 'block';
+    requestAnimationFrame(() => {
+      progFill.style.transitionDuration = duration + 'ms';
+      requestAnimationFrame(() => { progFill.style.width = '100%'; });
+    });
+
+    setTimeout(() => {
+      clearInterval(phaseInterval);
+      ring.classList.remove('spinning');
+      ring.style.display = 'none';
+      circle.classList.remove('flipping');
+      progTrack.style.display = 'none';
+
+      const isYes = Math.random() < 0.5;
+      const question = input.value.trim() || 'Random question';
+
+      circle.style.background  = isYes ? 'var(--success-bg)'    : 'var(--danger-bg)';
+      circle.style.borderColor = isYes ? 'var(--success-border)' : 'var(--danger-border)';
+      word.style.color         = isYes ? 'var(--success-text)'   : 'var(--danger-text)';
+      word.textContent         = isYes ? 'YES' : 'NO';
+      sub.textContent          = 'there you go';
+      status.textContent       = isYes ? 'The answer is clear!' : 'Looks like no this time.';
+      circle.classList.add('popped');
+
+      addHistory(question, isYes ? 'YES' : 'NO', isYes);
+      openModal(question, isYes);
+
+      busy = false; goBtn.disabled = false;
+    }, duration);
+  }
+
+  function addHistory(q, answer, isYes) {
+    histWrap.style.display = '';
+    const row = document.createElement('div'); row.className = 'hist-row';
+    const qEl = document.createElement('span'); qEl.className = 'hist-q'; qEl.textContent = q;
+    const badge = document.createElement('span');
+    badge.className = 'hist-badge ' + (isYes ? 'badge-yes' : 'badge-no');
+    badge.textContent = answer;
+    row.appendChild(qEl); row.appendChild(badge);
+    histList.insertBefore(row, histList.firstChild);
+  }
+
+  goBtn.addEventListener('click', randomize);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') randomize(); });
+  clearBtn.addEventListener('click', () => {
+    histList.innerHTML = '';
+    histWrap.style.display = 'none';
+    reset();
+    status.textContent = 'Type a question and press Randomize';
+  });
+</script>
+</body>
+</html>
