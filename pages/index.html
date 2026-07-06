@@ -493,7 +493,7 @@
 </div>
 
 <!-- ── YES / NO PANEL ─────────────────────────────────────── -->
-<div class="tab-panel active" id="panel-yesno">
+<div class="tab-panel active tab-visible" id="panel-yesno">
   <input id="question-input" type="text" placeholder="Ask a yes or no question&hellip;" maxlength="80" />
   <div id="stage">
     <div id="ring-track"></div>
@@ -703,8 +703,23 @@
 
   tabBtns.forEach(btn => btn.addEventListener('click', () => setActiveTab(btn.dataset.tab)));
 
-  const savedTab = localStorage.getItem('active_tab_v1');
-  if (savedTab === 'wheel' || savedTab === 'yesno') setActiveTab(savedTab);
+  // Make sure whichever tab is active on first load is actually shown —
+  // setActiveTab() is written for the crossfade *between* tabs and expects
+  // one panel already visible, so it can't be used for the initial paint.
+  function initTabs() {
+    const saved = localStorage.getItem('active_tab_v1');
+    const initial = saved === 'wheel' ? 'wheel' : 'yesno';
+    tabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === initial));
+    Object.entries(tabPanels).forEach(([key, panel]) => {
+      if (key === initial) {
+        panel.classList.add('active');
+        requestAnimationFrame(() => requestAnimationFrame(() => panel.classList.add('tab-visible')));
+      } else {
+        panel.classList.remove('active', 'tab-visible');
+      }
+    });
+  }
+  initTabs();
 
   // ─────────────────────────────────────────────────────────────
   // SHARED MODAL HELPERS
